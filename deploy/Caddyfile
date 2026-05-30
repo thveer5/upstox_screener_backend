@@ -1,0 +1,15 @@
+# Caddy config — drops in at /etc/caddy/Caddyfile.
+# Replace <YOUR-HOSTNAME> with your domain or a free dynamic hostname
+# (e.g. <ip>.sslip.io for instant HTTPS without a domain — Caddy auto-fetches LE cert).
+
+<YOUR-HOSTNAME> {
+    # Reverse-proxy everything to the uvicorn on localhost:8000
+    reverse_proxy 127.0.0.1:8000
+
+    # Enable HSTS, hide server header, gzip
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        -Server
+    }
+    encode gzip
+}

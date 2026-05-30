@@ -1,0 +1,31 @@
+# Secrets — NEVER commit
+.env
+.env.local
+*.env
+
+# Token / session storage (created at runtime)
+tokens.json
+tv_session.json
+*.db
+*.sqlite
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

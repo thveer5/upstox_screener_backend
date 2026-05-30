@@ -1,0 +1,18 @@
+[Unit]
+Description=Algo Upstox FastAPI backend
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/algo_upstox/backend
+Environment="PATH=/home/ubuntu/algo_upstox/backend/.venv/bin"
+EnvironmentFile=/home/ubuntu/algo_upstox/backend/.env
+ExecStart=/home/ubuntu/algo_upstox/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+
+# Persist tokens.json / tv_session.json across restarts (they're in WorkingDirectory)
+
+[Install]
+WantedBy=multi-user.target
