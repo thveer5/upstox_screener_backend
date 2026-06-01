@@ -11,6 +11,7 @@ from typing import Literal, Optional
 import httpx
 from fastapi import HTTPException
 
+from .candle_cache import enrich_movers
 from .tv_session import get_tv_session
 
 SCREENER_URL = "https://service.upstox.com/jscreener-api/v1/screener"
@@ -20,6 +21,9 @@ DEFAULT_FIELDS = [
     "symbol",
     "exchange",
     "ltp",
+    "open",
+    "high",
+    "low",
     "change",
     "change_percent",
     "vtt",
@@ -97,4 +101,8 @@ async def fetch_movers(
     if not body.get("success", True):
         raise HTTPException(status_code=502, detail=body.get("error") or body)
 
-    return body.get("data", body)
+    data = body.get("data", body)
+    instruments = data.get("instruments") or []
+    if instruments:
+        await enrich_movers(instruments)
+    return data

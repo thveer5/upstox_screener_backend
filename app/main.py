@@ -19,12 +19,14 @@ from .orders import (
     place_trailing_gtt,
 )
 from .portfolio import get_holdings, get_positions
+from .candle_cache import init_candle_db
 from .screener import fetch_movers
 from .token_store import clear_token, load_token, save_token
 from .tv_session import get_tv_session
 from .upstox_client import exchange_code_for_token, get_profile
 
 settings = get_settings()
+init_candle_db()
 
 app = FastAPI(title="Algo Upstox Backend", version="0.1.0")
 
@@ -87,7 +89,8 @@ async def auth_callback(
 
     token_payload = await exchange_code_for_token(code)
     save_token(token_payload)
-    return RedirectResponse("/")
+    frontend = settings.cors_origins[0] if settings.cors_origins else "/"
+    return RedirectResponse(frontend)
 
 
 def _jwt_exp(jwt: str) -> int | None:
@@ -132,7 +135,8 @@ async def auth_status():
 @app.get("/auth/logout")
 async def auth_logout():
     clear_token()
-    return RedirectResponse("/")
+    frontend = settings.cors_origins[0] if settings.cors_origins else "/"
+    return RedirectResponse(frontend)
 
 
 @app.get("/me")
