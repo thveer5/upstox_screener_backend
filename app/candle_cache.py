@@ -229,3 +229,30 @@ async def enrich_movers(instruments: list[dict]) -> None:
 
 async def _noop() -> list[dict]:
     return []
+
+
+async def get_recent_daily_candles(instrument_key: str, limit: int = 12) -> list[dict]:
+    """Return up to `limit` most-recent daily candles (oldest -> newest) for a
+    single instrument.
+
+    Reads from the SQLite cache and tops up from the historical-candle API when
+    the cache is missing or stale. Returns whatever is cached (possibly []) when
+    OAuth isn't configured or the upstream call fails.
+    """
+    today = _today_ist()
+    since = (today - timedelta(days=LOOKBACK_DAYS + API_BUFFER_DAYS)).isoformat()
+    cached = _cached_candles(instrument_key, since)
+
+    cutoff = (today - timedelta(days=1)).isoformat()
+    stale = not cached or cached[-1]["date"] < cutoff
+
+    token = get_access_token()
+    if stale and token:
+        headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+        async with httpx.AsyncClient() as client:
+            fresh = await _fetch_candles_from_api(client, instrument_key, headers)
+        if fresh:
+            _store_candles(instrument_key, fresh)
+            cached = fresh
+
+    return cached[-limit:] if limit else cached

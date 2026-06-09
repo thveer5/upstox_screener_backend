@@ -19,7 +19,7 @@ from .orders import (
     place_trailing_gtt,
 )
 from .portfolio import get_holdings, get_positions
-from .candle_cache import init_candle_db
+from .candle_cache import get_recent_daily_candles, init_candle_db
 from .screener import fetch_movers
 from .token_store import clear_token, load_token, save_token
 from .tv_session import get_tv_session
@@ -162,6 +162,21 @@ async def screener_movers(
         page_size=page_size,
         index_filter=build_index_filter(index),
     )
+
+
+@app.get("/api/screener/candles")
+async def screener_candles(
+    instrument_key: str = Query(..., description="e.g. NSE_EQ|INE..."),
+    days: int = Query(default=10, ge=1, le=30),
+):
+    """Recent daily OHLC candles for one instrument (oldest -> newest).
+
+    Used by the wishlist detail modal to show day-by-day price / change %.
+    Returns up to `days + 1` candles so the client can compute a change %
+    for the first day shown.
+    """
+    candles = await get_recent_daily_candles(instrument_key, limit=days + 1)
+    return {"instrument_key": instrument_key, "candles": candles}
 
 
 class BootstrapBody(BaseModel):

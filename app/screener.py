@@ -28,6 +28,7 @@ DEFAULT_FIELDS = [
     "change_percent",
     "vtt",
     "ttv",
+    "market_cap",
     "last_updated_at",
 ]
 
