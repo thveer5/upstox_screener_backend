@@ -23,7 +23,7 @@ from .token_store import get_access_token
 DB_PATH = Path(__file__).resolve().parent.parent / "movers.db"
 IST = ZoneInfo("Asia/Kolkata")
 
-LOOKBACK_DAYS = 12          # enough to compute streaks up to ~10 days
+LOOKBACK_DAYS = 45          # ~30+ trading days for the detail modal & streaks
 API_BUFFER_DAYS = 20        # extra calendar days to absorb weekends + holidays
 MAX_CONCURRENT_FETCHES = 15  # stay well under Upstox 25 req/s limit
 
@@ -244,7 +244,10 @@ async def get_recent_daily_candles(instrument_key: str, limit: int = 12) -> list
     cached = _cached_candles(instrument_key, since)
 
     cutoff = (today - timedelta(days=1)).isoformat()
-    stale = not cached or cached[-1]["date"] < cutoff
+    # Refetch if the cache is missing yesterday OR doesn't yet hold enough
+    # history for the requested window (e.g. after widening LOOKBACK_DAYS —
+    # already-cached rows won't have the older candles until we backfill).
+    stale = not cached or cached[-1]["date"] < cutoff or len(cached) < limit
 
     token = get_access_token()
     if stale and token:

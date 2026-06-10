@@ -61,24 +61,11 @@ def _build_query(extra_filter: Optional[str] = None) -> str:
     return "ttv > 1000000 and exchange = 'NSE'"
 
 
-async def fetch_movers(
-    kind: Movers = "gainers",
-    page_size: int = 50,
-    index_filter: Optional[str] = None,
-) -> dict:
-    payload = {
-        "query": _build_query(index_filter),
-        "segment": "EQ",
-        "fields": DEFAULT_FIELDS,
-        "sort": [{"field": "change_percent", "direction": "desc" if kind == "gainers" else "asc"}],
-        "pageSize": page_size,
-        "group": None,
-        "subQuery": None,
-    }
-
+async def _post_screener(payload: dict) -> dict:
+    """POST a payload to the screener with one 401-triggered token refresh + retry.
+    Returns the unwrapped `data` object (with `instruments`)."""
     session = get_tv_session()
 
-    # Try once; on 401, force-refresh the access_token and retry.
     resp = None
     for attempt in range(2):
         if attempt == 1:
@@ -102,7 +89,54 @@ async def fetch_movers(
     if not body.get("success", True):
         raise HTTPException(status_code=502, detail=body.get("error") or body)
 
-    data = body.get("data", body)
+    return body.get("data", body)
+
+
+async def fetch_movers(
+    kind: Movers = "gainers",
+    page_size: int = 50,
+    index_filter: Optional[str] = None,
+) -> dict:
+    payload = {
+        "query": _build_query(index_filter),
+        "segment": "EQ",
+        "fields": DEFAULT_FIELDS,
+        "sort": [{"field": "change_percent", "direction": "desc" if kind == "gainers" else "asc"}],
+        "pageSize": page_size,
+        "group": None,
+        "subQuery": None,
+    }
+    data = await _post_screener(payload)
+    instruments = data.get("instruments") or []
+    if instruments:
+        await enrich_movers(instruments)
+    return data
+
+
+def _sanitize_search(text: str) -> str:
+    """Keep only characters that can legitimately appear in an NSE symbol/name.
+    Strips quotes so the term can't break out of the SQL-ish `like` clause."""
+    allowed = [ch for ch in text if ch.isalnum() or ch in " &-."]
+    return "".join(allowed).strip()[:32]
+
+
+async def search_instruments(query_text: str, page_size: int = 25) -> dict:
+    """Symbol search across all NSE equities (no liquidity filter), so stocks
+    that aren't in the current gainers/losers list are still findable.
+    Same response shape and enrichment as fetch_movers."""
+    safe = _sanitize_search(query_text)
+    if not safe:
+        return {"instruments": []}
+    payload = {
+        "query": f"(symbol like '%{safe}%' or name like '%{safe}%') and exchange = 'NSE'",
+        "segment": "EQ",
+        "fields": DEFAULT_FIELDS,
+        "sort": [{"field": "ttv", "direction": "desc"}],
+        "pageSize": page_size,
+        "group": None,
+        "subQuery": None,
+    }
+    data = await _post_screener(payload)
     instruments = data.get("instruments") or []
     if instruments:
         await enrich_movers(instruments)

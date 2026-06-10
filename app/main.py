@@ -20,7 +20,7 @@ from .orders import (
 )
 from .portfolio import get_holdings, get_positions
 from .candle_cache import get_recent_daily_candles, init_candle_db
-from .screener import fetch_movers
+from .screener import fetch_movers, search_instruments
 from .token_store import clear_token, load_token, save_token
 from .tv_session import get_tv_session
 from .upstox_client import exchange_code_for_token, get_profile
@@ -164,10 +164,20 @@ async def screener_movers(
     )
 
 
+@app.get("/api/screener/search")
+async def screener_search(
+    q: str = Query(..., min_length=1, description="Symbol/name fragment, e.g. 'ola'"),
+    page_size: int = Query(default=25, ge=1, le=50),
+):
+    """Search NSE equities by symbol, across the whole universe (not just the
+    current movers list)."""
+    return await search_instruments(q, page_size=page_size)
+
+
 @app.get("/api/screener/candles")
 async def screener_candles(
     instrument_key: str = Query(..., description="e.g. NSE_EQ|INE..."),
-    days: int = Query(default=10, ge=1, le=30),
+    days: int = Query(default=30, ge=1, le=45),
 ):
     """Recent daily OHLC candles for one instrument (oldest -> newest).
 
